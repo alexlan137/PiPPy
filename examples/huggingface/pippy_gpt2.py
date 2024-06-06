@@ -35,6 +35,7 @@ def run(args):
         print(gpt2)
 
     # Input configs
+    # NOTE: enabled include_loss_args; adds 'labels' to the input
     example_inputs = generate_inputs_for_model(
         model_class, gpt2, model_name, args.batch_size, args.device, include_loss_args=True)
 
@@ -84,21 +85,17 @@ def run(args):
     schedule = ScheduleGPipe(stage, args.chunks)
 
     # Run
+    # NOTE: input_ids (traditional input) is passed in through the first model stage
     example_input_ids = {"input_ids" : example_inputs["input_ids"]}
+    # NOTE: labels (input for loss computation) is passed in through the last model stage
     example_input_labels = example_inputs["labels"]
+    
     if args.rank == 0:
         schedule.step(**example_input_ids)
     elif args.rank == args.chunks - 1:
         out = schedule.step(example_input_labels)
     else:
         out = schedule.step()
-
-    if args.rank == args.chunks - 1:
-        print(out)
-        # import dill
-        # dill.dump(out, open("outputMODmerged.pkl", "wb"))
-
-
 
     dist.destroy_process_group()
     print(f"Rank {args.rank} completes")
