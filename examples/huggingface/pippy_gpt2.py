@@ -36,7 +36,7 @@ def run(args):
 
     # Input configs
     example_inputs = generate_inputs_for_model(
-        model_class, gpt2, model_name, args.batch_size, args.device)
+        model_class, gpt2, model_name, args.batch_size, args.device, include_loss_args=True)
 
     assert not args.autosplit or not args.graphsplit
 
@@ -81,14 +81,24 @@ def run(args):
         device=args.device,
     )
 
-    # Attach to a schedule
     schedule = ScheduleGPipe(stage, args.chunks)
 
     # Run
+    example_input_ids = {"input_ids" : example_inputs["input_ids"]}
+    example_input_labels = example_inputs["labels"]
     if args.rank == 0:
-        schedule.step(**example_inputs)
+        schedule.step(**example_input_ids)
+    elif args.rank == args.chunks - 1:
+        out = schedule.step(example_input_labels)
     else:
         out = schedule.step()
+
+    if args.rank == args.chunks - 1:
+        print(out)
+        # import dill
+        # dill.dump(out, open("outputMODmerged.pkl", "wb"))
+
+
 
     dist.destroy_process_group()
     print(f"Rank {args.rank} completes")
